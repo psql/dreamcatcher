@@ -869,10 +869,10 @@ Another entry..."
         let selectedCommandIndex = 0;
 
         const commands = [
-            { icon: '✏️', text: 'Go to Write', action: () => switchToTab('write') },
-            { icon: '🧘', text: 'Go to Reflect', action: () => switchToTab('reflect') },
-            { icon: '📖', text: 'Go to Thoughts', action: () => switchToTab('thoughts') },
-            { icon: '📂', text: 'Open Backups Folder', action: openBackupsFolder },
+            { icon: '✏️', text: 'Go to Write', shortcut: 'W', action: () => switchToTab('write') },
+            { icon: '🧘', text: 'Go to Reflect', shortcut: 'R', action: () => switchToTab('reflect') },
+            { icon: '📖', text: 'Go to Thoughts', shortcut: 'T', action: () => switchToTab('thoughts') },
+            { icon: '📂', text: 'Open Backups Folder', shortcut: 'B', action: openBackupsFolder },
         ];
 
         let filteredCommands = [...commands];
@@ -917,6 +917,7 @@ Another entry..."
                 <div class="command-item ${index === selectedCommandIndex ? 'selected' : ''}" data-index="${index}">
                     <span class="command-icon">${cmd.icon}</span>
                     <span class="command-text">${cmd.text}</span>
+                    <span class="command-shortcut">${cmd.shortcut}</span>
                 </div>
             `).join('');
 
@@ -954,7 +955,7 @@ Another entry..."
                 closeCommandPalette();
             }
 
-            // Arrow navigation when palette is open
+            // Navigation and shortcuts when palette is open
             if (commandPalette.classList.contains('active')) {
                 if (e.key === 'ArrowDown') {
                     e.preventDefault();
@@ -968,6 +969,17 @@ Another entry..."
                     e.preventDefault();
                     if (filteredCommands[selectedCommandIndex]) {
                         filteredCommands[selectedCommandIndex].action();
+                    }
+                } else {
+                    // Single-key shortcuts (only when input is empty)
+                    const inputValue = commandInput.value.trim();
+                    if (inputValue === '' && e.key.length === 1) {
+                        const key = e.key.toUpperCase();
+                        const command = filteredCommands.find(cmd => cmd.shortcut === key);
+                        if (command) {
+                            e.preventDefault();
+                            command.action();
+                        }
                     }
                 }
             }
