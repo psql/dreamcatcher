@@ -586,15 +586,48 @@ Another entry..."
             });
         });
 
+        // Generate current timestamp in the correct format
+        function getCurrentTimestamp() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+
+            // Get timezone offset in format GMT-0800
+            const offsetMinutes = now.getTimezoneOffset();
+            const offsetHours = Math.abs(Math.floor(offsetMinutes / 60));
+            const offsetMins = Math.abs(offsetMinutes % 60);
+            const offsetSign = offsetMinutes <= 0 ? '+' : '-';
+            const timezone = `GMT${offsetSign}${String(offsetHours).padStart(2, '0')}${String(offsetMins).padStart(2, '0')}`;
+
+            return `${year}.${month}.${day}.${hours}${minutes}.${timezone}`;
+        }
+
+        // Check if text contains a timestamp
+        function hasTimestamp(text) {
+            // Look for pattern like 2025.12.26.1430.GMT-0800
+            const timestampPattern = /\d{4}\.\d{2}\.\d{2}\.\d{4}\.GMT[+-]\d{4}/;
+            return timestampPattern.test(text);
+        }
+
         // Handle form submission
         async function archiveNotes(e) {
             if (e) e.preventDefault();
 
-            const notes = textarea.value;
+            let notes = textarea.value;
 
             if (!notes.trim()) {
                 showStatus('Nothing to archive', 'error');
                 return;
+            }
+
+            // Auto-add timestamp if none exists
+            if (!hasTimestamp(notes)) {
+                const timestamp = getCurrentTimestamp();
+                notes = `${timestamp}\n${notes}`;
+                console.log('📅 Auto-added timestamp:', timestamp);
             }
 
             archiveBtn.disabled = true;
