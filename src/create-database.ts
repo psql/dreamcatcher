@@ -40,9 +40,9 @@ async function createDatabase() {
       const pageResponse = await notion.pages.create({
         // @ts-ignore
         parent: {
-          type: 'workspace',
+          type: 'workspace' as any,
           workspace: true,
-        },
+        } as any,
         // @ts-ignore
         properties: {
           title: {

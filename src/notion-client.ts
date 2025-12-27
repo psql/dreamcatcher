@@ -11,10 +11,32 @@ export class NotionArchiver {
   }
 
   /**
+   * Split long text into chunks that fit Notion's 2000 character limit
+   */
+  private splitIntoChunks(text: string, maxLength: number = 2000): string[] {
+    if (text.length <= maxLength) {
+      return [text];
+    }
+
+    const chunks: string[] = [];
+    let currentIndex = 0;
+
+    while (currentIndex < text.length) {
+      const chunk = text.substring(currentIndex, currentIndex + maxLength);
+      chunks.push(chunk);
+      currentIndex += maxLength;
+    }
+
+    return chunks;
+  }
+
+  /**
    * Archive a single note to Notion
    */
   async archiveNote(note: ParsedNote): Promise<string> {
     try {
+      // Split content into chunks if it's too long
+      const contentChunks = this.splitIntoChunks(note.content || '(empty)', 2000);
       // @ts-ignore - TypeScript types may be incomplete
       const response = await this.notion.pages.create({
         // @ts-ignore
@@ -98,20 +120,21 @@ export class NotionArchiver {
             type: 'divider',
             divider: {},
           },
-          {
-            object: 'block',
-            type: 'paragraph',
+          // Create a paragraph block for each chunk
+          ...contentChunks.map((chunk) => ({
+            object: 'block' as const,
+            type: 'paragraph' as const,
             paragraph: {
               rich_text: [
                 {
-                  type: 'text',
+                  type: 'text' as const,
                   text: {
-                    content: note.content || '(empty)',
+                    content: chunk,
                   },
                 },
               ],
             },
-          },
+          })),
         ],
       });
 
@@ -159,6 +182,52 @@ export class NotionArchiver {
     } catch (error) {
       console.error('Connection test failed:', error);
       return false;
+    }
+  }
+
+  /**
+   * Get notes from the past week for reflection
+   */
+  async getRecentNotes(days: number = 7): Promise<ParsedNote[]> {
+    try {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - days);
+      const dateFilter = sevenDaysAgo.toISOString().split('T')[0];
+
+      // @ts-ignore
+      const response = await this.notion.databases.query({
+        database_id: this.databaseId,
+        filter: {
+          property: 'Note Date',
+          date: {
+            on_or_after: dateFilter,
+          },
+        },
+        sorts: [
+          {
+            property: 'Note Date',
+            direction: 'descending',
+          },
+        ],
+      });
+
+      // @ts-ignore
+      const notes: ParsedNote[] = response.results.map((page: any) => {
+        const noteDate = page.properties['Note Date']?.date?.start || '';
+        const timestamp = page.properties['Timestamp']?.rich_text?.[0]?.text?.content || '';
+        const content = page.properties['Content']?.rich_text?.[0]?.text?.content || '';
+
+        return {
+          date: noteDate,
+          timestamp: timestamp,
+          content: content,
+        };
+      });
+
+      return notes;
+    } catch (error: any) {
+      console.error('Error fetching recent notes:', error.message);
+      throw new Error(`Failed to fetch recent notes: ${error.message}`);
     }
   }
 }

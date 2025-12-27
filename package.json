@@ -13,10 +13,15 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@notionhq/client": "^5.6.0",
+    "@anthropic-ai/sdk": "^0.71.2",
+    "@notionhq/client": "^2.3.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "express-session": "^1.18.2",
+    "passport": "^0.7.0",
+    "passport-oauth2": "^1.8.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
