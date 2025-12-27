@@ -370,6 +370,93 @@
             border-color: #444;
         }
 
+        /* Command Palette */
+        .command-palette-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 20vh;
+            z-index: 9999;
+        }
+
+        .command-palette-overlay.active {
+            display: flex;
+        }
+
+        .command-palette {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .command-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid #2a2a2a;
+            padding: 20px 24px;
+            color: #e0e0e0;
+            font-family: inherit;
+            font-size: 1.125rem;
+            outline: none;
+        }
+
+        .command-input::placeholder {
+            color: #666;
+        }
+
+        .command-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .command-item {
+            padding: 14px 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: background 0.15s;
+            border-bottom: 1px solid #222;
+        }
+
+        .command-item:last-child {
+            border-bottom: none;
+        }
+
+        .command-item:hover,
+        .command-item.selected {
+            background: #2a2a2a;
+        }
+
+        .command-icon {
+            font-size: 1.2rem;
+            width: 24px;
+            text-align: center;
+        }
+
+        .command-text {
+            flex: 1;
+            color: #e0e0e0;
+            font-size: 0.95rem;
+        }
+
+        .command-shortcut {
+            color: #666;
+            font-size: 0.8rem;
+            font-family: 'Courier Prime', monospace;
+        }
+
         /* Smooth scrollbar */
         .editor-wrapper::-webkit-scrollbar {
             width: 8px;
@@ -443,6 +530,20 @@ Another entry..."
     </div>
 
     <div id="statusBar" class="status-bar hidden"></div>
+
+    <!-- Command Palette -->
+    <div id="commandPalette" class="command-palette-overlay">
+        <div class="command-palette">
+            <input
+                type="text"
+                id="commandInput"
+                class="command-input"
+                placeholder="Type a command..."
+                autocomplete="off"
+            />
+            <div id="commandList" class="command-list"></div>
+        </div>
+    </div>
 
     <script>
         const form = document.getElementById('archiveForm');
@@ -759,6 +860,127 @@ Another entry..."
         textarea.addEventListener('input', () => {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
+        });
+
+        // Command Palette
+        const commandPalette = document.getElementById('commandPalette');
+        const commandInput = document.getElementById('commandInput');
+        const commandList = document.getElementById('commandList');
+        let selectedCommandIndex = 0;
+
+        const commands = [
+            { icon: '✏️', text: 'Go to Write', action: () => switchToTab('write') },
+            { icon: '🧘', text: 'Go to Reflect', action: () => switchToTab('reflect') },
+            { icon: '📖', text: 'Go to Thoughts', action: () => switchToTab('thoughts') },
+            { icon: '📂', text: 'Open Backups Folder', action: openBackupsFolder },
+        ];
+
+        let filteredCommands = [...commands];
+
+        function switchToTab(tabName) {
+            const btn = document.querySelector(`[data-tab="${tabName}"]`);
+            if (btn) btn.click();
+            closeCommandPalette();
+        }
+
+        async function openBackupsFolder() {
+            try {
+                const response = await fetch('/api/open-backups');
+                const data = await response.json();
+                if (data.success) {
+                    showStatus('Opened backups folder', 'success');
+                } else {
+                    showStatus(data.error || 'Failed to open folder', 'error');
+                }
+            } catch (error) {
+                showStatus('Failed to open folder', 'error');
+            }
+            closeCommandPalette();
+        }
+
+        function showCommandPalette() {
+            commandPalette.classList.add('active');
+            commandInput.value = '';
+            filteredCommands = [...commands];
+            selectedCommandIndex = 0;
+            renderCommands();
+            commandInput.focus();
+        }
+
+        function closeCommandPalette() {
+            commandPalette.classList.remove('active');
+            commandInput.value = '';
+        }
+
+        function renderCommands() {
+            commandList.innerHTML = filteredCommands.map((cmd, index) => `
+                <div class="command-item ${index === selectedCommandIndex ? 'selected' : ''}" data-index="${index}">
+                    <span class="command-icon">${cmd.icon}</span>
+                    <span class="command-text">${cmd.text}</span>
+                </div>
+            `).join('');
+
+            // Add click handlers
+            document.querySelectorAll('.command-item').forEach((item, index) => {
+                item.addEventListener('click', () => {
+                    filteredCommands[index].action();
+                });
+            });
+        }
+
+        function filterCommands() {
+            const query = commandInput.value.toLowerCase();
+            filteredCommands = commands.filter(cmd =>
+                cmd.text.toLowerCase().includes(query)
+            );
+            selectedCommandIndex = 0;
+            renderCommands();
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Cmd+K or Ctrl+K to open palette
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                if (commandPalette.classList.contains('active')) {
+                    closeCommandPalette();
+                } else {
+                    showCommandPalette();
+                }
+            }
+
+            // Escape to close
+            if (e.key === 'Escape' && commandPalette.classList.contains('active')) {
+                closeCommandPalette();
+            }
+
+            // Arrow navigation when palette is open
+            if (commandPalette.classList.contains('active')) {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedCommandIndex = Math.min(selectedCommandIndex + 1, filteredCommands.length - 1);
+                    renderCommands();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedCommandIndex = Math.max(selectedCommandIndex - 1, 0);
+                    renderCommands();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (filteredCommands[selectedCommandIndex]) {
+                        filteredCommands[selectedCommandIndex].action();
+                    }
+                }
+            }
+        });
+
+        // Filter as user types
+        commandInput.addEventListener('input', filterCommands);
+
+        // Close on overlay click
+        commandPalette.addEventListener('click', (e) => {
+            if (e.target === commandPalette) {
+                closeCommandPalette();
+            }
         });
     </script>
 </body>

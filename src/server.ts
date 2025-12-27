@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import { exec } from 'child_process';
 import { parseNotes } from './parser';
 import { NotionArchiver } from './notion-client';
 import { ClaudeService } from './claude-service';
@@ -108,6 +109,30 @@ app.delete('/api/backup', (req, res) => {
   } catch (error: any) {
     console.error('❌ Error deleting backup:', error);
     res.status(500).json({ error: 'Failed to delete backup' });
+  }
+});
+
+// Open backups folder in Finder/Explorer
+app.get('/api/open-backups', (req, res) => {
+  try {
+    const backupDir = path.join(__dirname, '..');
+    const command = process.platform === 'darwin'
+      ? `open "${backupDir}"`
+      : process.platform === 'win32'
+      ? `explorer "${backupDir}"`
+      : `xdg-open "${backupDir}"`;
+
+    exec(command, (error) => {
+      if (error) {
+        console.error('❌ Error opening folder:', error);
+        return res.status(500).json({ error: 'Failed to open folder' });
+      }
+      console.log('📂 Opened backups folder');
+      res.json({ success: true, message: 'Folder opened' });
+    });
+  } catch (error: any) {
+    console.error('❌ Error opening folder:', error);
+    res.status(500).json({ error: 'Failed to open folder' });
   }
 });
 
