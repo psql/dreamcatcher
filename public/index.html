@@ -186,6 +186,11 @@
             color: #e0e0e0;
         }
 
+        .tab-btn.focused {
+            outline: 2px solid #4a9eff;
+            outline-offset: 2px;
+        }
+
         /* Tab content */
         .tab-content {
             display: none;
@@ -557,32 +562,67 @@ Another entry..."
         const reflectTab = document.getElementById('reflectTab');
         const thoughtsTab = document.getElementById('thoughtsTab');
 
+        let focusedTabIndex = 0;
+        let tabNavigationMode = false;
+
+        function activateTab(tabName) {
+            // Update active button
+            tabBtns.forEach(b => b.classList.remove('active'));
+            const targetBtn = document.querySelector(`[data-tab="${tabName}"]`);
+            if (targetBtn) {
+                targetBtn.classList.add('active');
+            }
+
+            // Hide all tabs
+            writeTab.classList.remove('active');
+            reflectTab.classList.remove('active');
+            thoughtsTab.classList.remove('active');
+
+            // Show selected tab
+            if (tabName === 'write') {
+                writeTab.classList.add('active');
+                archiveBtn.style.display = '';
+            } else if (tabName === 'reflect') {
+                reflectTab.classList.add('active');
+                archiveBtn.style.display = 'none';
+                loadReflection();
+            } else if (tabName === 'thoughts') {
+                thoughtsTab.classList.add('active');
+                archiveBtn.style.display = 'none';
+                loadThoughts();
+            }
+        }
+
+        function updateTabFocus() {
+            tabBtns.forEach((btn, index) => {
+                btn.classList.toggle('focused', index === focusedTabIndex);
+            });
+        }
+
+        function enterTabNavigationMode() {
+            tabNavigationMode = true;
+            // Find current active tab and focus it
+            tabBtns.forEach((btn, index) => {
+                if (btn.classList.contains('active')) {
+                    focusedTabIndex = index;
+                }
+            });
+            updateTabFocus();
+            textarea.blur();
+            console.log('📍 Tab navigation mode active');
+        }
+
+        function exitTabNavigationMode() {
+            tabNavigationMode = false;
+            tabBtns.forEach(btn => btn.classList.remove('focused'));
+            console.log('✏️ Back to editing mode');
+        }
+
         tabBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 const tabName = btn.dataset.tab;
-
-                // Update active button
-                tabBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-
-                // Hide all tabs
-                writeTab.classList.remove('active');
-                reflectTab.classList.remove('active');
-                thoughtsTab.classList.remove('active');
-
-                // Show selected tab
-                if (tabName === 'write') {
-                    writeTab.classList.add('active');
-                    archiveBtn.style.display = '';
-                } else if (tabName === 'reflect') {
-                    reflectTab.classList.add('active');
-                    archiveBtn.style.display = 'none';
-                    loadReflection();
-                } else if (tabName === 'thoughts') {
-                    thoughtsTab.classList.add('active');
-                    archiveBtn.style.display = 'none';
-                    loadThoughts();
-                }
+                activateTab(tabName);
+                exitTabNavigationMode();
             });
         });
 
@@ -983,9 +1023,41 @@ Another entry..."
                 }
             }
 
-            // Escape to close
-            if (e.key === 'Escape' && commandPalette.classList.contains('active')) {
-                closeCommandPalette();
+            // Escape handling
+            if (e.key === 'Escape') {
+                if (commandPalette.classList.contains('active')) {
+                    closeCommandPalette();
+                } else if (!tabNavigationMode) {
+                    // Enter tab navigation mode
+                    e.preventDefault();
+                    enterTabNavigationMode();
+                }
+            }
+
+            // Tab navigation mode
+            if (tabNavigationMode && !commandPalette.classList.contains('active')) {
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    focusedTabIndex = Math.max(0, focusedTabIndex - 1);
+                    updateTabFocus();
+                    // Instantly switch to the tab
+                    const tabName = tabBtns[focusedTabIndex].dataset.tab;
+                    activateTab(tabName);
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    focusedTabIndex = Math.min(tabBtns.length - 1, focusedTabIndex + 1);
+                    updateTabFocus();
+                    // Instantly switch to the tab
+                    const tabName = tabBtns[focusedTabIndex].dataset.tab;
+                    activateTab(tabName);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    // Exit tab navigation mode and return to editing
+                    exitTabNavigationMode();
+                    if (document.querySelector('[data-tab="write"]').classList.contains('active')) {
+                        textarea.focus();
+                    }
+                }
             }
 
             // Navigation and shortcuts when palette is open
