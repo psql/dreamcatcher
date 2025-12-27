@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { parseNotes } from './parser';
 import { NotionArchiver } from './notion-client';
 import { ClaudeService } from './claude-service';
@@ -10,6 +11,9 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Backup file path (in project root)
+const BACKUP_FILE = path.join(__dirname, '../backup.txt');
 
 // Initialize Notion client
 const notionApiKey = process.env.NOTION_API_KEY;
@@ -56,6 +60,55 @@ setInterval(preloadReflection, 4 * 60 * 1000);
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+// Backup endpoints
+app.post('/api/backup', (req, res) => {
+  try {
+    const { content } = req.body;
+    if (!content || content.trim() === '') {
+      // Delete backup if content is empty
+      if (fs.existsSync(BACKUP_FILE)) {
+        fs.unlinkSync(BACKUP_FILE);
+      }
+      return res.json({ success: true, message: 'Backup cleared (empty content)' });
+    }
+
+    fs.writeFileSync(BACKUP_FILE, content, 'utf-8');
+    console.log('💾 Backup saved');
+    res.json({ success: true, message: 'Backup saved' });
+  } catch (error: any) {
+    console.error('❌ Error saving backup:', error);
+    res.status(500).json({ error: 'Failed to save backup' });
+  }
+});
+
+app.get('/api/backup', (req, res) => {
+  try {
+    if (fs.existsSync(BACKUP_FILE)) {
+      const content = fs.readFileSync(BACKUP_FILE, 'utf-8');
+      console.log('📂 Backup loaded');
+      res.json({ success: true, content });
+    } else {
+      res.json({ success: true, content: '' });
+    }
+  } catch (error: any) {
+    console.error('❌ Error loading backup:', error);
+    res.status(500).json({ error: 'Failed to load backup' });
+  }
+});
+
+app.delete('/api/backup', (req, res) => {
+  try {
+    if (fs.existsSync(BACKUP_FILE)) {
+      fs.unlinkSync(BACKUP_FILE);
+      console.log('🗑️  Backup deleted');
+    }
+    res.json({ success: true, message: 'Backup cleared' });
+  } catch (error: any) {
+    console.error('❌ Error deleting backup:', error);
+    res.status(500).json({ error: 'Failed to delete backup' });
+  }
 });
 
 // Thoughts endpoint - always fetch fresh with pagination
@@ -160,6 +213,18 @@ app.post('/api/archive', async (req, res) => {
           errors: result.errors,
         },
       });
+    }
+
+    // Clear backup on successful archive
+    if (result.success > 0) {
+      try {
+        if (fs.existsSync(BACKUP_FILE)) {
+          fs.unlinkSync(BACKUP_FILE);
+          console.log('🗑️  Backup cleared after successful archive');
+        }
+      } catch (err) {
+        console.error('⚠️  Failed to clear backup:', err);
+      }
     }
 
     res.json({

@@ -710,6 +710,51 @@ Another entry..."
             }
         });
 
+        // Backup functionality
+        async function saveBackup() {
+            const content = textarea.value;
+            if (!content || content.trim() === '') return;
+
+            try {
+                await fetch('/api/backup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content }),
+                });
+                console.log('💾 Backup saved');
+            } catch (error) {
+                console.error('Failed to save backup:', error);
+            }
+        }
+
+        async function loadBackup() {
+            try {
+                const response = await fetch('/api/backup');
+                const data = await response.json();
+                if (data.success && data.content && data.content.trim() !== '') {
+                    textarea.value = data.content;
+                    textarea.style.height = 'auto';
+                    textarea.style.height = textarea.scrollHeight + 'px';
+                    console.log('📂 Backup restored');
+                }
+            } catch (error) {
+                console.error('Failed to load backup:', error);
+            }
+        }
+
+        // Load backup on page load
+        loadBackup();
+
+        // Auto-save every 5 minutes
+        setInterval(saveBackup, 5 * 60 * 1000);
+
+        // Save backup when user types (debounced - only after they stop typing for 10 seconds)
+        let backupTimeout;
+        textarea.addEventListener('input', () => {
+            clearTimeout(backupTimeout);
+            backupTimeout = setTimeout(saveBackup, 10000);
+        });
+
         // Auto-resize textarea
         textarea.addEventListener('input', () => {
             textarea.style.height = 'auto';
